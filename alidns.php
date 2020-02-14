@@ -1,6 +1,6 @@
 <?php
 /***
-* Alidns-api-php V1.0
+* Alidns-api-php V1.1
 * By Star.Yu
 ***/
 if($_SERVER['REQUEST_METHOD']=="POST"){
@@ -35,30 +35,35 @@ $Timestamp = gmdate('Y-m-d\TH:i:s\Z',time());
 //Signature percentEncode函数
 function percentEncode($str) {
   $res = urlencode($str);
-  $res = preg_replace('/\+/', '%20', $res);
-  $res = preg_replace('/\*/', '%2A', $res);
+  $res = str_replace(array('+', '*'), array('%20', '%2A'), $res);
   $res = preg_replace('/%7E/', '~', $res);
   return $res;
 }
 
 //唯一数，用于防止网络重放攻击
 function generateByMicrotime() {
-    $microtime = microtime(true);
-    $microtime = str_replace('.', '', $microtime);
-    return (substr($microtime, 0, 14));
+  $microtime = microtime(true);
+  $microtime = str_replace('.', '', $microtime);
+  return $microtime;
 }
 
-//format url
-function url($parameters, $accessKeySecret){
+//sign
+function sign($parameters, $accessKeySecret){
   ksort($parameters);
   $canonicalizedQueryString = '';
   foreach ($parameters as $key => $value) {
     $canonicalizedQueryString .= '&' . percentEncode($key) . '=' . percentEncode($value);
   }
-  $canonicalizedQueryString = utf8_encode(substr($canonicalizedQueryString, 1));
-  $stringToBeSigned = 'POST&%2F&' . percentEncode($canonicalizedQueryString);
+  $stringToBeSigned = 'POST&%2F&' . percentEncode(substr($canonicalizedQueryString, 1));
   $signature = base64_encode(hash_hmac('sha1', $stringToBeSigned, $accessKeySecret. '&', true));
-  $url = 'https://alidns.aliyuncs.com/?' . $canonicalizedQueryString . '&Signature=' . $signature;
+  return $signature;
+}
+
+function geturl($public, $request, $accessKeySecret){
+  $params = array_merge($public, $request);
+  $params['Signature'] =  sign($params, $accessKeySecret);
+  $uri = http_build_query($params);
+  $url = 'https://alidns.aliyuncs.com/?'.$uri;
   return $url;
 }
 
@@ -82,18 +87,22 @@ function ssl_post($url){
 $public = array(
   'Format'    =>  'json', 
   'Version' =>    '2015-01-09',
-  'SignatureMethod'   =>  'HMAC-SHA1',
-  'SignatureNonce'    =>  generateByMicrotime(),
   'AccessKeyId'   =>  $accessKeyId,
-  'SignatureVersion'  =>  '1.0',
+  'SignatureMethod'   =>  'HMAC-SHA1',  
   'Timestamp' =>  $Timestamp,
+  'SignatureVersion'  =>  '1.0',
+  'SignatureNonce'    =>  generateByMicrotime()
   );
-$arr = array(  
+$search = array(  
   'Action'    =>  'DescribeDomainRecords',
   'DomainName'    =>  $domain,
+  'PageSize' => '500',
+  'RRKeyWord' => $record,
+  'Type' => 'A'
   );
 
-$data = json_decode(ssl_post(url(array_merge($public,$arr), $accessKeySecret)),true);
+//搜索record相关的记录列表
+$data = json_decode(ssl_post(geturl($public,$search, $accessKeySecret)),true);
 
 if(empty($data['DomainRecords'])){
   exit('1');
@@ -116,7 +125,7 @@ if(empty($data['DomainRecords'])){
       'Value'    =>  $ip,
       'TTL'    =>  '600',
     );
-    $data = json_decode(ssl_post(url(array_merge($public,$add), $accessKeySecret)),true);
+    $data = json_decode(ssl_post(geturl($public,$add, $accessKeySecret)),true);
     if(empty($data['RecordId'])){
       exit('1');
     }else{
@@ -134,7 +143,7 @@ if(empty($data['DomainRecords'])){
         'Value'    =>  $ip,
         'TTL'    =>  '600',
       ); 
-      $data = json_decode(ssl_post(url(array_merge($public,$edit), $accessKeySecret)),true);      
+      $data = json_decode(ssl_post(geturl($public,$edit, $accessKeySecret)),true);
       if(empty($data['RecordId'])){
         exit('1');
       }else{
