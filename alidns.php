@@ -1,6 +1,6 @@
 <?php
 /***
-* Alidns-api-php V1.1
+* Alidns-api-php V1.2
 * By Star.Yu
 ***/
 if($_SERVER['REQUEST_METHOD']=="POST"){
@@ -10,7 +10,7 @@ if($_SERVER['REQUEST_METHOD']=="GET"){
   $request = $_GET;
 }
 if(is_array($request)&&count($request)<1){
-  Header("Location: http://www.myxzy.com/alidns-api-php.html"); 
+  Header("Location: https://www.77bx.com/dnspod-ddns-api.html"); 
   exit('2'); 
 }
 if(empty($request['id'])){
