@@ -1,6 +1,6 @@
 <?php
 /***
-* Alidns-api-php V1.2
+* Alidns-api-php V1.3
 * By Star.Yu
 ***/
 if($_SERVER['REQUEST_METHOD']=="POST"){
@@ -10,9 +10,10 @@ if($_SERVER['REQUEST_METHOD']=="GET"){
   $request = $_GET;
 }
 if(is_array($request)&&count($request)<1){
-  Header("Location: https://www.77bx.com/dnspod-ddns-api.html"); 
-  exit('2'); 
+  Header("Location: //www.77bx.com/aliyun-ddns-api.html");
+  exit('2');
 }
+
 if(empty($request['id'])){
   exit('2');
 }elseif(empty($request['secret'])){
@@ -26,7 +27,15 @@ if(empty($request['id'])){
   $accessKeyId = addslashes($request['id']);
   $accessKeySecret = addslashes($request['secret']);
   $record = addslashes($request['record']);
-  $domain = addslashes($request['domain']);  
+  $domain = addslashes($request['domain']);
+  $type = empty($request['type']) || $request['type']!='AAAA' ? 'A' : addslashes($request['type']);
+}
+
+if($type === 'A' && !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)){
+  exit('1');
+}
+if($type === 'AAAA' && !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)){
+  exit('1');
 }
 
 //公共参数Timestamp GMT时间
@@ -68,37 +77,37 @@ function geturl($public, $request, $accessKeySecret){
 }
 
 function ssl_post($url){
-  $curl = curl_init(); 
+  $curl = curl_init();
   curl_setopt($curl, CURLOPT_URL, $url);
-  curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0); 
-  curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0); 
-  curl_setopt($curl, CURLOPT_POST, 1); 
-  curl_setopt($curl, CURLOPT_TIMEOUT, 30); 
-	curl_setopt($curl, CURLOPT_HEADER, 0); 
-	curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1); 
-  $tmpInfo = curl_exec($curl); 
+  curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+  curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+  curl_setopt($curl, CURLOPT_POST, 1);
+  curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+	curl_setopt($curl, CURLOPT_HEADER, 0);
+	curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+  $tmpInfo = curl_exec($curl);
   if (curl_errno($curl)) {
      echo 'Errno'.curl_error($curl);
   }
-  curl_close($curl); 
-  return $tmpInfo; 
+  curl_close($curl);
+  return $tmpInfo;
 }
 
 $public = array(
-  'Format'    =>  'json', 
+  'Format'    =>  'json',
   'Version' =>    '2015-01-09',
   'AccessKeyId'   =>  $accessKeyId,
-  'SignatureMethod'   =>  'HMAC-SHA1',  
+  'SignatureMethod'   =>  'HMAC-SHA1',
   'Timestamp' =>  $Timestamp,
   'SignatureVersion'  =>  '1.0',
   'SignatureNonce'    =>  generateByMicrotime()
   );
-$search = array(  
+$search = array(
   'Action'    =>  'DescribeDomainRecords',
   'DomainName'    =>  $domain,
   'PageSize' => '500',
   'RRKeyWord' => $record,
-  'Type' => 'A'
+  'Type' => $type
   );
 
 //搜索record相关的记录列表
@@ -115,13 +124,13 @@ if(empty($data['DomainRecords'])){
       break;
     }
   }
-  
+
   if(empty($record_id)){
     $add = array(
       'Action'    =>  'AddDomainRecord',
       'DomainName'    =>  $domain,
       'RR'    =>  $record,
-      'Type'    =>  'A',
+      'Type'    =>  $type,
       'Value'    =>  $ip,
       'TTL'    =>  '600',
     );
@@ -129,7 +138,7 @@ if(empty($data['DomainRecords'])){
     if(empty($data['RecordId'])){
       exit('1');
     }else{
-      exit('0'); 
+      exit('0');
     }
   }else{
     if($record_arr['Value'] == $ip){
@@ -139,16 +148,16 @@ if(empty($data['DomainRecords'])){
         'Action'    =>  'UpdateDomainRecord',
         'RecordId'    =>  $record_id,
         'RR'    =>  $record,
-        'Type'    =>  'A',
+        'Type'    =>  $type,
         'Value'    =>  $ip,
         'TTL'    =>  '600',
-      ); 
+      );
       $data = json_decode(ssl_post(geturl($public,$edit, $accessKeySecret)),true);
       if(empty($data['RecordId'])){
         exit('1');
       }else{
-        exit('0'); 
-      }    
-    } 
+        exit('0');
+      }
+    }
   }
 }
